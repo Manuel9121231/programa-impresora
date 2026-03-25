@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Gestión – Impresoras y Máquinas 3D</title>
+  <meta name="description" content="Sistema de gestión de mantenimiento preventivo para impresoras y máquinas 3D">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+
+  <!-- Loader -->
+  <div class="loader-overlay" id="loaderOverlay">
+    <div class="spinner" style="width:40px;height:40px;border-width:3px"></div>
+  </div>
+
+  <div class="layout">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo">
+          <div class="logo-icon">🖨️</div>
+          <div>
+            <h1>GestiónImpresoras - Estación de la ciencia y la tecnología</h1>
+            <p>Panel de Administración</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Principal</div>
+          <div class="nav-item active" id="nav-dashboard" onclick="navigateTo('dashboard')">
+            <span class="nav-icon">📊</span>
+            <span>Panel General</span>
+          </div>
+          <div class="nav-item" id="nav-maquinas" onclick="navigateTo('maquinas')">
+            <span class="nav-icon">🖨️</span>
+            <span>Máquinas</span>
+            <span class="nav-badge" id="badge-alertas" style="display:none">!</span>
+          </div>
+          <div class="nav-item" id="nav-historial" onclick="navigateTo('historial')">
+            <span class="nav-icon">📋</span>
+            <span>Historial</span>
+          </div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Administración</div>
+          <div class="nav-item" id="nav-operarios" onclick="navigateTo('operarios')">
+            <span class="nav-icon">👷</span>
+            <span>Operarios</span>
+          </div>
+          <div class="nav-item" id="nav-qrcodes" onclick="navigateTo('qrcodes')">
+            <span class="nav-icon">📱</span>
+            <span>Códigos QR</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        v1.0 · Sistema de Gestión de Mantenimiento
+      </div>
+    </aside>
+
+    <!-- ── Main ── -->
+    <main class="main">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-icon btn-outline" id="btnMenuMobile" onclick="toggleSidebar()"
+            style="display:none">☰</button>
+          <div>
+            <div class="topbar-title" id="topbarTitle">Panel General</div>
+            <div style="font-size:12px;color:var(--text-muted)" id="topbarSubtitle">Resumen del sistema</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <div style="font-size:12px;color:var(--text-muted)" id="serverInfo">Cargando...</div>
+          <button class="btn btn-primary btn-sm" onclick="recargarTodo()">↺ Actualizar</button>
+        </div>
+      </header>
+
+      <div class="page-content">
+
+        <!-- ══════════ DASHBOARD ══════════ -->
+        <div class="section active fade-in" id="section-dashboard">
+          <div class="kpi-grid" id="kpiGrid">
+            <div class="kpi-card azul">
+              <div class="kpi-icon">✅</div>
+              <div class="kpi-value" id="kpi-hoy">–</div>
+              <div class="kpi-label">Mantenimientos hoy</div>
+            </div>
+            <div class="kpi-card verde">
+              <div class="kpi-icon">📅</div>
+              <div class="kpi-value" id="kpi-semana">–</div>
+              <div class="kpi-label">Esta semana</div>
+            </div>
+            <div class="kpi-card rojo">
+              <div class="kpi-icon">🚨</div>
+              <div class="kpi-value" id="kpi-pendientes">–</div>
+              <div class="kpi-label">Máquinas vencidas</div>
+            </div>
+            <div class="kpi-card amarillo">
+              <div class="kpi-icon">⚠️</div>
+              <div class="kpi-value" id="kpi-proximos">–</div>
+              <div class="kpi-label">Próximas a vencer</div>
+            </div>
+          </div>
+
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="chart-title">📈 Actividad últimos 30 días</div>
+              <div class="chart-bar-wrap" id="chartDias"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">🖨️ Mantenimientos por máquina</div>
+              <div class="chart-bar-wrap" id="chartMaquinas"></div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <div class="table-header">
+              <div class="table-title">📋 Últimos mantenimientos realizados</div>
+              <button class="btn btn-outline btn-sm" onclick="navigateTo('historial')">Ver todos →</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Máquina</th>
+                    <th>Sala</th>
+                    <th>Operario</th>
+                    <th>Fecha y hora</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardUltimos"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════ MÁQUINAS ══════════ -->
+        <div class="section fade-in" id="section-maquinas">
+          <div class="section-header">
+            <div>
+              <div class="section-title">🖨️ Máquinas</div>
+              <div class="section-subtitle">Gestión y estado de todas las máquinas</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select class="form-control" id="filtroSalaMaquinas" onchange="filtrarMaquinas()"
+                style="width:160px;padding:8px 12px;font-size:13px">
+                <option value="">Todas las salas</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-maquinas" id="gridMaquinas"></div>
+        </div>
+
+        <!-- ══════════ HISTORIAL ══════════ -->
+        <div class="section fade-in" id="section-historial">
+          <div class="section-header">
+            <div>
+              <div class="section-title">📋 Historial de Mantenimientos</div>
+              <div class="section-subtitle">Registro completo de todas las sesiones</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+          </div>
+
+          <div class="table-wrap">
+            <div class="filtros-bar">
+              <div class="filtro-item">
+                <select class="form-control" id="filtroSala" onchange="cargarHistorial()">
+                  <option value="">Todas las salas</option>
+                </select>
+              </div>
+              <div class="filtro-item">
+                <select class="form-control" id="filtroMaquina" onchange="cargarHistorial()">
+                  <option value="">Todas las máquinas</option>
+                </select>
+              </div>
+              <div class="filtro-item">
+                <select class="form-control" id="filtroOperario" onchange="cargarHistorial()">
+                  <option value="">Todos los operarios</option>
+                </select>
+              </div>
+              <div class="filtro-item">
+                <input type="date" class="form-control" id="filtroDesde" onchange="cargarHistorial()">
+              </div>
+              <div class="filtro-item">
+                <input type="date" class="form-control" id="filtroHasta" onchange="cargarHistorial()">
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Máquina</th>
+                    <th>Sala</th>
+                    <th>Operario</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Puntos</th>
+                    <th>Observaciones</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tablaHistorial"></tbody>
+              </table>
+            </div>
+            <div id="historialEmpty" class="empty-state" style="display:none">
+              <div class="icon">📋</div>
+              <p>No se encontraron registros con esos filtros</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════ OPERARIOS ══════════ -->
+        <div class="section fade-in" id="section-operarios">
+          <div class="section-header">
+            <div>
+              <div class="section-title">👷 Operarios</div>
+              <div class="section-subtitle">Gestión de personal</div>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalOperario()">+ Nuevo operario</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>PIN</th>
+                  <th>Estado</th>
+                  <th>Alta</th>
+                </tr>
+              </thead>
+              <tbody id="tablaOperarios"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ══════════ QR CODES ══════════ -->
+        <div class="section fade-in" id="section-qrcodes">
+          <div class="section-header">
+            <div>
+              <div class="section-title">📱 Códigos QR</div>
+              <div class="section-subtitle">QR individuales para cada máquina — escanear con el móvil del operario</div>
+            </div>
+            <select class="form-control" id="filtroSalaQR" onchange="filtrarQRs()"
+              style="width:160px;padding:8px 12px;font-size:13px">
+              <option value="">Todas las salas</option>
+            </select>
+          </div>
+
+          <div
+            style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:20px">ℹ️</span>
+            <div>
+              <div style="font-weight:600;margin-bottom:4px">Instrucciones de uso</div>
+              <div style="font-size:13px;color:var(--text-secondary)">
+                1. Imprime o muestra en pantalla el QR de cada máquina.<br>
+                2. El operario escanea el QR con la cámara del móvil.<br>
+                3. Introduce su PIN para identificarse.<br>
+                4. Completa el checklist de mantenimiento.<br>
+                5. El dato queda registrado automáticamente en la base de datos.
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-maquinas" id="gridQRs"></div>
+        </div>
+
+      </div><!-- /page-content -->
+    </main>
+  </div><!-- /layout -->
+
+  <!-- ── Modal: Ver QR ── -->
+  <div class="overlay" id="modalQR">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div class="modal-header">
+        <div class="modal-title">Código QR</div>
+        <button class="modal-close" onclick="cerrarModal('modalQR')">✕</button>
+      </div>
+      <div class="qr-container">
+        <div class="qr-maquina-nombre" id="qrNombre"></div>
+        <div class="qr-maquina-sala" id="qrSala"></div>
+        <img id="qrImg" src="" alt="QR Code">
+        <div class="qr-url" id="qrUrl"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:center">
+        <button class="btn btn-primary" onclick="imprimirQR()">🖨️ Imprimir QR</button>
+        <button class="btn btn-outline" onclick="cerrarModal('modalQR')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Editar Máquina ── -->
+  <div class="overlay" id="modalMaquina">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Editar Máquina</div>
+        <button class="modal-close" onclick="cerrarModal('modalMaquina')">✕</button>
+      </div>
+      <input type="hidden" id="editMaquinaId">
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input class="form-control" id="editNombre" type="text">
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control" id="editTipo">
+            <option>Impresora FDM</option>
+            <option>Impresora Resina</option>
+            <option>CNC / Fresadora</option>
+            <option>Cortadora Láser</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frecuencia (días)</label>
+          <input class="form-control" id="editFrecuencia" type="number" min="1" max="365">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Modelo</label>
+        <input class="form-control" id="editModelo" type="text">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-control" id="editEstado">
+          <option value="activa">Activa</option>
+          <option value="inactiva">Inactiva / En reparación</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalMaquina')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarMaquina()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Nuevo Operario ── -->
+  <div class="overlay" id="modalOperario">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <div class="modal-title">Nuevo Operario</div>
+        <button class="modal-close" onclick="cerrarModal('modalOperario')">✕</button>
+      </div>
+      <div id="msgOperario"></div>
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-control" id="nuevoNombre" type="text" placeholder="Ej: Carlos García">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN (4 dígitos)</label>
+        <input class="form-control" id="nuevoPin" type="text" maxlength="6" placeholder="Ej: 1234" inputmode="numeric">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalOperario')">Cancelar</button>
+        <button class="btn btn-primary" onclick="crearOperario()">Crear operario</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Detalle sesión ── -->
+  <div class="overlay" id="modalDetalle">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <div class="modal-title">Detalle del Mantenimiento</div>
+        <button class="modal-close" onclick="cerrarModal('modalDetalle')">✕</button>
+      </div>
+      <div id="detalleContenido"></div>
+    </div>
+  </div>
+
+  <script src="js/admin.js"></script>
+</body>
+
+</html>

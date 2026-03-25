@@ -1,0 +1,16 @@
+{
+  "name": "sistema-gestion-impresoras",
+  "version": "1.0.0",
+  "description": "Sistema de gestión de mantenimiento preventivo para impresoras y máquinas 3D",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3"
+  }
+}
