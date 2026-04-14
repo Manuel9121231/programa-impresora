@@ -2,480 +2,220 @@
 <html lang="es">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel de Gestión – Impresoras y Máquinas 3D</title>
-  <meta name="description" content="Sistema de gestión de mantenimiento preventivo para impresoras y máquinas 3D">
-  <link rel="stylesheet" href="css/main.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f0f1a" />
+  <meta name="description"
+    content="App de mantenimiento industrial — registra incidencias y mantenimientos con foto y ID." />
+  <title>Mantenimiento e Incidencias</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- ZXing for QR / barcode scanning -->
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <!-- QR code generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
 
 <body>
 
-  <!-- Loader -->
-  <div class="loader-overlay" id="loaderOverlay">
-    <div class="spinner" style="width:40px;height:40px;border-width:3px"></div>
-  </div>
-
-  <div class="layout">
-    <!-- ── Sidebar ── -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <div class="logo">
-          <div class="logo-icon">🖨️</div>
-          <div>
-            <h1>GestiónImpresoras - Estación de la ciencia y la tecnología</h1>
-            <p>Panel de Administración</p>
-          </div>
-        </div>
+  <!-- ─── Header ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <img src="logo-brain.png" alt="La Estación" class="logo-icon-img" />
+        <span class="logo-text">Mantenimiento e Incidencias</span>
       </div>
-
-      <nav class="sidebar-nav">
-        <div class="nav-section">
-          <div class="nav-section-title">Principal</div>
-          <div class="nav-item active" id="nav-dashboard" onclick="navigateTo('dashboard')">
-            <span class="nav-icon">📊</span>
-            <span>Panel General</span>
-          </div>
-          <div class="nav-item" id="nav-maquinas" onclick="navigateTo('maquinas')">
-            <span class="nav-icon">🖨️</span>
-            <span>Máquinas</span>
-            <span class="nav-badge" id="badge-alertas" style="display:none">!</span>
-          </div>
-          <div class="nav-item" id="nav-historial" onclick="navigateTo('historial')">
-            <span class="nav-icon">📋</span>
-            <span>Historial</span>
-          </div>
-        </div>
-        <div class="nav-section">
-          <div class="nav-section-title">Administración</div>
-          <div class="nav-item" id="nav-operarios" onclick="navigateTo('operarios')">
-            <span class="nav-icon">👷</span>
-            <span>Operarios</span>
-            <span class="role-badge admin" style="display:none" id="badge-operarios">🔒 Admin</span>
-          </div>
-          <div class="nav-item" id="nav-usuarios" onclick="navigateTo('usuarios')">
-            <span class="nav-icon">👥</span>
-            <span>Usuarios</span>
-            <span class="role-badge admin" style="display:none" id="badge-usuarios">🔒 Admin</span>
-          </div>
-          <div class="nav-item" id="nav-qrcodes" onclick="navigateTo('qrcodes')">
-            <span class="nav-icon">📱</span>
-            <span>Códigos QR</span>
-            <span class="role-badge admin" style="display:none" id="badge-qrcodes">🔒 Admin</span>
-          </div>
-        </div>
-      </nav>
-
-      <div class="sidebar-footer">
-        v1.0 · Sistema de Gestión de Mantenimiento
-      </div>
-    </aside>
-    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar()"></div>
-
-    <!-- ── Main ── -->
-    <main class="main">
-      <header class="topbar">
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="btn btn-icon btn-outline" id="btnMenuMobile" onclick="toggleSidebar()"
-            style="display:none">☰</button>
-          <div>
-            <div class="topbar-title" id="topbarTitle">Panel General</div>
-            <div style="font-size:12px;color:var(--text-muted)" id="topbarSubtitle">Resumen del sistema</div>
-          </div>
-        </div>
-        <div class="topbar-actions">
-          <div class="role-selector" title="Simulador de Roles">
-            <span id="roleIcon">🛡️</span>
-            <select id="simuladorRol" onchange="cambiarRolSimulado(this.value)">
-              <option value="admin">Administrador</option>
-              <option value="tecnico">Técnico</option>
-              <option value="usuario">Usuario (Lectura)</option>
-            </select>
-          </div>
-          <div style="font-size:12px;color:var(--text-muted)" id="serverInfo" class="server-info-hw">Cargando...</div>
-          <button class="btn btn-primary btn-sm" onclick="recargarTodo()">↺ Actualizar</button>
-        </div>
-      </header>
-
-      <div class="page-content">
-
-        <!-- ══════════ ACCESO RESTRINGIDO ══════════ -->
-        <div class="section fade-in" id="section-restringido">
-          <div class="restricted-screen">
-            <div class="icon">🔒</div>
-            <h2>Acceso Restringido</h2>
-            <p>No tienes los permisos suficientes para ver esta sección. Acceso limitado solo a Administradores.</p>
-            <button class="btn btn-primary" onclick="navigateTo('dashboard')">← Volver al Panel</button>
-          </div>
-        </div>
-
-        <!-- ══════════ DASHBOARD ══════════ -->
-        <div class="section active fade-in" id="section-dashboard">
-          <div class="kpi-grid" id="kpiGrid">
-            <div class="kpi-card azul">
-              <div class="kpi-icon">✅</div>
-              <div class="kpi-value" id="kpi-hoy">–</div>
-              <div class="kpi-label">Mantenimientos hoy</div>
-            </div>
-            <div class="kpi-card verde">
-              <div class="kpi-icon">📅</div>
-              <div class="kpi-value" id="kpi-semana">–</div>
-              <div class="kpi-label">Esta semana</div>
-            </div>
-            <div class="kpi-card rojo">
-              <div class="kpi-icon">🚨</div>
-              <div class="kpi-value" id="kpi-pendientes">–</div>
-              <div class="kpi-label">Máquinas vencidas</div>
-            </div>
-            <div class="kpi-card amarillo">
-              <div class="kpi-icon">⚠️</div>
-              <div class="kpi-value" id="kpi-proximos">–</div>
-              <div class="kpi-label">Próximas a vencer</div>
-            </div>
-          </div>
-
-          <div class="chart-grid">
-            <div class="chart-card">
-              <div class="chart-title">📈 Actividad últimos 30 días</div>
-              <div class="chart-bar-wrap" id="chartDias"></div>
-            </div>
-            <div class="chart-card">
-              <div class="chart-title">🖨️ Mantenimientos por máquina</div>
-              <div class="chart-bar-wrap" id="chartMaquinas"></div>
-            </div>
-          </div>
-
-          <div class="table-wrap">
-            <div class="table-header">
-              <div class="table-title">📋 Últimos mantenimientos realizados</div>
-              <button class="btn btn-outline btn-sm" onclick="navigateTo('historial')">Ver todos →</button>
-            </div>
-            <div style="overflow-x:auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Máquina</th>
-                    <th>Sala</th>
-                    <th>Operario</th>
-                    <th>Fecha y hora</th>
-                    <th>Estado</th>
-                  </tr>
-                </thead>
-                <tbody id="dashboardUltimos"></tbody>
-              </table>
+      <div class="header-meta">
+        <!-- QR button -->
+        <div class="qr-btn-wrap" id="qrBtnWrap">
+          <button id="btnQR" class="btn-icon" title="QR de esta página" style="background:none;border:none;color:var(--text-2);font-size:1.2rem;cursor:pointer;padding:0 5px;transition:color 0.2s;">&#x2317;</button>
+          <div id="qrPopover" class="qr-popover" style="display:none;">
+            <div class="qr-popover-inner">
+              <p class="qr-popover-label">Escanea para abrir en el móvil</p>
+              <div id="qrPopoverImg"></div>
+              <p id="qrPopoverUrl" class="qr-popover-url"></p>
             </div>
           </div>
         </div>
+        <span id="clock" class="clock"></span>
 
-        <!-- ══════════ MÁQUINAS ══════════ -->
-        <div class="section fade-in" id="section-maquinas">
-          <div class="section-header">
-            <div>
-              <div class="section-title">🖨️ Máquinas</div>
-              <div class="section-subtitle">Gestión y estado de todas las máquinas</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <select class="form-control" id="filtroSalaMaquinas" onchange="filtrarMaquinas()"
-                style="width:160px;padding:8px 12px;font-size:13px">
-                <option value="">Todas las salas</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid-maquinas" id="gridMaquinas"></div>
-        </div>
-
-        <!-- ══════════ HISTORIAL ══════════ -->
-        <div class="section fade-in" id="section-historial">
-          <div class="section-header">
-            <div>
-              <div class="section-title">📋 Historial de Mantenimientos</div>
-              <div class="section-subtitle">Registro completo de todas las sesiones</div>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="exportarCSV()">⬇️ Exportar CSV</button>
-          </div>
-
-          <div class="table-wrap">
-            <div class="filtros-bar">
-              <div class="filtro-item">
-                <select class="form-control" id="filtroSala" onchange="cargarHistorial()">
-                  <option value="">Todas las salas</option>
-                </select>
-              </div>
-              <div class="filtro-item">
-                <select class="form-control" id="filtroMaquina" onchange="cargarHistorial()">
-                  <option value="">Todas las máquinas</option>
-                </select>
-              </div>
-              <div class="filtro-item">
-                <select class="form-control" id="filtroOperario" onchange="cargarHistorial()">
-                  <option value="">Todos los operarios</option>
-                </select>
-              </div>
-              <div class="filtro-item">
-                <input type="date" class="form-control" id="filtroDesde" onchange="cargarHistorial()">
-              </div>
-              <div class="filtro-item">
-                <input type="date" class="form-control" id="filtroHasta" onchange="cargarHistorial()">
-              </div>
-            </div>
-            <div style="overflow-x:auto">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Máquina</th>
-                    <th>Sala</th>
-                    <th>Operario</th>
-                    <th>Inicio</th>
-                    <th>Fin</th>
-                    <th>Puntos</th>
-                    <th>Observaciones</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="tablaHistorial"></tbody>
-              </table>
-            </div>
-            <div id="historialEmpty" class="empty-state" style="display:none">
-              <div class="icon">📋</div>
-              <p>No se encontraron registros con esos filtros</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════════ OPERARIOS ══════════ -->
-        <div class="section fade-in" id="section-operarios">
-          <div class="section-header">
-            <div>
-              <div class="section-title">👷 Operarios</div>
-              <div class="section-subtitle">Gestión de personal de mantenimiento</div>
-            </div>
-            <button class="btn btn-primary" onclick="abrirModalOperario()">+ Nuevo operario</button>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>PIN</th>
-                  <th>Estado</th>
-                  <th>Alta</th>
-                </tr>
-              </thead>
-              <tbody id="tablaOperarios"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ══════════ USUARIOS ══════════ -->
-        <div class="section fade-in" id="section-usuarios">
-          <div class="section-header">
-            <div>
-              <div class="section-title">👥 Usuarios</div>
-              <div class="section-subtitle">Gestión de usuarios del sistema</div>
-            </div>
-            <button class="btn btn-primary" onclick="abrirModalUsuario()">+ Nuevo usuario</button>
-          </div>
-
-          <div style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start">
-            <span style="font-size:20px">ℹ️</span>
-            <div style="font-size:13px;color:var(--text-secondary)">
-              Los <strong>usuarios</strong> son las personas con acceso al panel de administración.<br>
-              Los <strong>operarios</strong> son los técnicos que realizan el mantenimiento en las máquinas mediante QR y PIN.
-            </div>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Email</th>
-                  <th>Rol</th>
-                  <th>Estado</th>
-                  <th>Alta</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="tablaUsuarios"></tbody>
-            </table>
-            <div id="usuariosEmpty" class="empty-state" style="display:none">
-              <div class="icon">👥</div>
-              <p>No hay usuarios creados todavía</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════════ QR CODES ══════════ -->
-        <div class="section fade-in" id="section-qrcodes">
-          <div class="section-header">
-            <div>
-              <div class="section-title">📱 Códigos QR</div>
-              <div class="section-subtitle">QR individuales para cada máquina — escanear con el móvil del operario</div>
-            </div>
-            <select class="form-control" id="filtroSalaQR" onchange="filtrarQRs()"
-              style="width:160px;padding:8px 12px;font-size:13px">
-              <option value="">Todas las salas</option>
-            </select>
-          </div>
-
-          <div
-            style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start">
-            <span style="font-size:20px">ℹ️</span>
-            <div>
-              <div style="font-weight:600;margin-bottom:4px">Instrucciones de uso</div>
-              <div style="font-size:13px;color:var(--text-secondary)">
-                1. Imprime o muestra en pantalla el QR de cada máquina.<br>
-                2. El operario escanea el QR con la cámara del móvil.<br>
-                3. Introduce su PIN para identificarse.<br>
-                4. Completa el checklist de mantenimiento.<br>
-                5. El dato queda registrado automáticamente en la base de datos.
-              </div>
-            </div>
-          </div>
-
-          <div class="grid-maquinas" id="gridQRs"></div>
-        </div>
-
-      </div><!-- /page-content -->
-    </main>
-  </div><!-- /layout -->
-
-  <!-- ── Modal: Ver QR ── -->
-  <div class="overlay" id="modalQR">
-    <div class="modal" style="max-width:360px;text-align:center">
-      <div class="modal-header">
-        <div class="modal-title">Código QR</div>
-        <button class="modal-close" onclick="cerrarModal('modalQR')">✕</button>
-      </div>
-      <div class="qr-container">
-        <div class="qr-maquina-nombre" id="qrNombre"></div>
-        <div class="qr-maquina-sala" id="qrSala"></div>
-        <img id="qrImg" src="" alt="QR Code">
-        <div class="qr-url" id="qrUrl"></div>
-      </div>
-      <div class="modal-footer" style="justify-content:center">
-        <button class="btn btn-primary" onclick="imprimirQR()">🖨️ Imprimir QR</button>
-        <button class="btn btn-outline" onclick="cerrarModal('modalQR')">Cerrar</button>
+        <button id="btnHistory" class="btn-icon" title="Ver Historial" style="background:none;border:none;color:var(--text-2);font-size:1.2rem;cursor:pointer;padding:0 5px;transition:color 0.2s;">📋</button>
+        <span class="badge-status online" id="statusBadge">● Online</span>
       </div>
     </div>
-  </div>
+  </header>
 
-  <!-- ── Modal: Editar Máquina ── -->
-  <div class="overlay" id="modalMaquina">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title">Editar Máquina</div>
-        <button class="modal-close" onclick="cerrarModal('modalMaquina')">✕</button>
-      </div>
-      <input type="hidden" id="editMaquinaId">
-      <div class="form-group">
-        <label class="form-label">Nombre</label>
-        <input class="form-control" id="editNombre" type="text">
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label class="form-label">Tipo</label>
-          <select class="form-control" id="editTipo">
-            <option>Impresora FDM</option>
-            <option>Impresora Resina</option>
-            <option>CNC / Fresadora</option>
-            <option>Cortadora Láser</option>
-            <option>Otro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Frecuencia (días)</label>
-          <input class="form-control" id="editFrecuencia" type="number" min="1" max="365">
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Modelo</label>
-        <input class="form-control" id="editModelo" type="text">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Estado</label>
-        <select class="form-control" id="editEstado">
-          <option value="activa">Activa</option>
-          <option value="inactiva">Inactiva / En reparación</option>
+  <!-- ─── Main ────────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Step 1: Machine selector -->
+    <section class="card step-card" id="step1">
+      <div class="step-label"><span class="step-number">1</span> Seleccionar impresora</div>
+
+      <div class="field-group">
+        <label class="field-label" for="machineSelect">Impresora</label>
+        <select id="machineSelect" class="text-input select-input">
+          <option value="">Cargando impresoras...</option>
         </select>
+        <p class="field-hint" id="machineHint"></p>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="cerrarModal('modalMaquina')">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarMaquina()">Guardar cambios</button>
+
+      <button class="btn btn-primary btn-full" id="btnNext1" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+
+      <button class="btn btn-ghost" id="btnAdmin" style="margin-top:10px;width:100%;font-size:.8rem;opacity:.5">
+        🔒 Gestionar impresoras
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('btnHistory').click()" style="margin-top:8px;width:100%;font-size:.85rem;">
+        📋 Historial
+      </button>
+    </section>
+
+    <!-- Step 2: Type selector -->
+    <section class="card step-card locked" id="step2">
+      <div class="step-label"><span class="step-number">2</span> Tipo de registro</div>
+
+      <div class="type-grid">
+        <button class="type-card" id="typeIncidencia" data-type="Incidencia">
+          <span class="type-icon">⚠</span>
+          <span class="type-title">Incidencia</span>
+          <span class="type-desc">Avería, fallo o problema inesperado</span>
+        </button>
+        <button class="type-card" id="typeMantenimiento" data-type="Mantenimiento">
+          <span class="type-icon">🔧</span>
+          <span class="type-title">Mantenimiento</span>
+          <span class="type-desc">Revisión programada o preventiva</span>
+        </button>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="notes">
+          Observaciones 
+          <span id="notesHint" style="color:var(--warning); font-size:0.75rem; margin-left: 6px;">(Obligatorio)</span>
+        </label>
+        <textarea id="notes" class="text-input textarea" rows="3"
+          placeholder="Describe brevemente la situación…"></textarea>
+      </div>
+
+      <button class="btn btn-primary btn-full mt-4" id="btnNext2" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+    </section>
+
+    <!-- Step 3: Photo -->
+    <section class="card step-card locked" id="step3">
+      <div class="step-label"><span class="step-number">3</span> Fotografías</div>
+
+      <input type="file" id="photoInputCamera" accept="image/*" capture="environment" class="hidden" />
+      <input type="file" id="photoInputGallery" accept="image/*" multiple class="hidden" />
+
+      <!-- Thumbnail grid — tiles added by JS -->
+      <div class="photo-grid" id="photoGrid"></div>
+      
+      <div id="photoAddContainer" style="display:flex; gap:10px; margin-top:12px;">
+         <button type="button" class="btn btn-ghost" id="btnCamera" style="flex:1; padding:12px 0;">📸 Cámara</button>
+         <button type="button" class="btn btn-ghost" id="btnGallery" style="flex:1; padding:12px 0;">🖼 Galería</button>
+      </div>
+
+      <p class="field-hint" id="photoHint" style="margin-top:8px;color:var(--text2);font-size:.78rem">Puedes añadir hasta 5 fotos</p>
+
+      <button class="btn btn-primary btn-full mt-4" id="btnNext3" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+    </section>
+
+    <!-- Step 4: Preview & Submit -->
+    <section class="card step-card locked" id="step4">
+      <div class="step-label"><span class="step-number">4</span> Confirmación</div>
+
+      <div class="summary-grid" id="summaryGrid"></div>
+
+      <div class="field-group" style="margin-top: 16px;">
+        <label class="field-label" for="operarioPin">
+          PIN de Operario
+          <span style="color:var(--danger); font-size:0.75rem; margin-left: 6px;">(Obligatorio)</span>
+        </label>
+        <input type="password" id="operarioPin" class="text-input" inputmode="numeric" maxlength="6" placeholder="Introduce tu PIN de 4 dígitos">
+      </div>
+
+      <button class="btn btn-submit btn-full mt-6" id="btnSubmit">
+        <span id="submitText">Enviar ↗</span>
+        <span id="submitSpinner" class="spinner hidden"></span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ─── Toast ────────────────────────────────────────────────────────────── -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ─── Success overlay ───────────────────────────────────────────────────── -->
+  <div class="overlay hidden" id="successOverlay">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>¡Registrado!</h2>
+      <p id="successDetail" style="margin-bottom: 24px; font-weight: 500;"></p>
+      <button class="btn btn-primary" id="btnNewRecord">Nuevo registro</button>
+    </div>
+  </div>
+
+  <!-- ─── WebRTC Camera Overlay (Desktop) ─────────────────────────────────────── -->
+  <div class="overlay hidden" id="cameraOverlay" style="z-index: 1000; display:none; justify-content:center; align-items:center; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px);">
+    <div class="card" style="width: 90%; max-width: 500px; padding: 20px; background:var(--card); border:1px solid var(--border); border-radius:12px;">
+      <h3 style="margin-bottom: 12px; font-size:1.1rem; color:var(--text1)">Cámara Web</h3>
+      <div style="position:relative; width:100%; aspect-ratio:4/3; background:#000; border-radius:8px; overflow:hidden; margin-bottom: 16px;">
+        <video id="camVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="btnCamClose" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primary" id="btnCamCapture" style="flex:2;">📸 Capturar Foto</button>
+      </div>
+      <canvas id="camCanvas" class="hidden" style="display:none;"></canvas>
+    </div>
+  </div>
+
+  <!-- ─── History Overlay ───────────────────────────────────────────────────── -->
+  <div class="overlay hidden" id="historyOverlay">
+    <div class="history-card">
+      <div class="history-header">
+        <h2>Historial</h2>
+        <button id="btnCloseHistory" class="btn-icon">✕</button>
+      </div>
+      <div class="history-filters" style="display:flex; gap:10px;">
+         <select id="histFilterAsset" class="text-input select-input" style="padding:8px; font-size:0.85rem; flex:1;">
+           <option value="">Todas las máquinas...</option>
+         </select>
+         <select id="histFilterType" class="text-input select-input" style="padding:8px; font-size:0.85rem; flex:1;">
+           <option value="">Todos los tipos...</option>
+           <option value="Incidencia">Incidencias</option>
+           <option value="Mantenimiento">Mantenimientos</option>
+         </select>
+      </div>
+      <div class="history-list" id="historyList">
+        <!-- populated by js -->
       </div>
     </div>
   </div>
 
-  <!-- ── Modal: Nuevo Operario ── -->
-  <div class="overlay" id="modalOperario">
-    <div class="modal" style="max-width:400px">
-      <div class="modal-header">
-        <div class="modal-title">Nuevo Operario</div>
-        <button class="modal-close" onclick="cerrarModal('modalOperario')">✕</button>
-      </div>
-      <div id="msgOperario"></div>
-      <div class="form-group">
-        <label class="form-label">Nombre completo</label>
-        <input class="form-control" id="nuevoNombre" type="text" placeholder="Ej: Carlos García">
-      </div>
-      <div class="form-group">
-        <label class="form-label">PIN (4 dígitos)</label>
-        <input class="form-control" id="nuevoPin" type="text" maxlength="6" placeholder="Ej: 1234" inputmode="numeric">
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="cerrarModal('modalOperario')">Cancelar</button>
-        <button class="btn btn-primary" onclick="crearOperario()">Crear operario</button>
-      </div>
+  <!-- ─── Lightbox ──────────────────────────────────────────────────────────── -->
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <button id="lightboxClose" class="lightbox-close" title="Cerrar">✕</button>
+    <button id="lightboxPrev" class="lightbox-nav lightbox-prev" title="Anterior">‹</button>
+    <button id="lightboxNext" class="lightbox-nav lightbox-next" title="Siguiente">›</button>
+    <div class="lightbox-inner">
+      <img id="lightboxImg" src="" alt="Foto completa" />
+      <div id="lightboxCounter" class="lightbox-counter"></div>
     </div>
   </div>
 
-  <!-- ── Modal: Nuevo Usuario ── -->
-  <div class="overlay" id="modalUsuario">
-    <div class="modal" style="max-width:440px">
-      <div class="modal-header">
-        <div class="modal-title">Nuevo Usuario</div>
-        <button class="modal-close" onclick="cerrarModal('modalUsuario')">✕</button>
-      </div>
-      <div id="msgUsuario"></div>
-      <div class="form-group">
-        <label class="form-label">Nombre completo <span style="color:var(--danger)">*</span></label>
-        <input class="form-control" id="nuevoUsuarioNombre" type="text" placeholder="Ej: Ana Sánchez">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-control" id="nuevoUsuarioEmail" type="email" placeholder="Ej: ana@ejemplo.es">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Rol</label>
-        <select class="form-control" id="nuevoUsuarioRol">
-          <option value="usuario">Usuario</option>
-          <option value="admin">Administrador</option>
-          <option value="tecnico">Técnico</option>
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="cerrarModal('modalUsuario')">Cancelar</button>
-        <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Modal: Detalle sesión ── -->
-  <div class="overlay" id="modalDetalle">
-    <div class="modal" style="max-width:560px">
-      <div class="modal-header">
-        <div class="modal-title">Detalle del Mantenimiento</div>
-        <button class="modal-close" onclick="cerrarModal('modalDetalle')">✕</button>
-      </div>
-      <div id="detalleContenido"></div>
-    </div>
-  </div>
-
-  <script src="js/admin.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

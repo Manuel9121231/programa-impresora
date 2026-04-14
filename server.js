@@ -2,6 +2,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 const os = require('os');
@@ -11,7 +12,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Support base64 photos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Helper: obtener IP local ────────────────────────────────────────────────
@@ -215,6 +216,75 @@ app.get('/api/historial', (req, res) => {
       hasta: req.query.hasta || null,
     };
     res.json({ ok: true, data: db.getHistorial(filtros) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ── API V2 (Para frontend MantApp) ──────────────────────────────────────────
+app.get('/api/v2/machines', (req, res) => {
+  try {
+    const maquinas = db.getMaquinas();
+    const formatted = maquinas.map(m => ({
+      id: m.id,
+      space: m.sala_id || 'Maker',
+      type: m.tipo,
+      status: m.estado === 'activa' ? 'Activa' : 'Inactiva'
+    }));
+    res.json({ ok: true, data: formatted });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/v2/records', (req, res) => {
+  try {
+    const { timestamp, assetId, type, notes, photos, pin } = req.body;
+    
+    // 1. Validar PIN
+    const operario = db.verificarPin(pin);
+    if (!operario) return res.status(401).json({ ok: false, error: 'PIN incorrecto o inactivo' });
+
+    // 2. Iniciar sesión
+    const sesionId = db.iniciarSesion(assetId, operario.id);
+
+    // 3. Guardar fotos localmente en public/uploads
+    if (photos && photos.length > 0) {
+      photos.forEach((b64Str, i) => {
+        const match = b64Str.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        if (match && match.length === 3) {
+          const buffer = Buffer.from(match[2], 'base64');
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const fileName = `sesion_${sesionId}_photo_${i+1}.${ext}`;
+          fs.writeFileSync(path.join(__dirname, 'public', 'uploads', fileName), buffer);
+        }
+      });
+    }
+
+    // 4. Completar sesión con las observaciones
+    const finalObserver = `[${type.toUpperCase()}] ${notes} (Enviado vía App v2)`;
+    db.completarSesion(sesionId, finalObserver);
+
+    res.json({ ok: true, data: { id: sesionId } });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get('/api/v2/history', (req, res) => {
+  try {
+    // Adapter to transform internal local history to v2 expected format
+    const historial = db.getHistorial({}).slice(0, 100);
+    const formatted = historial.map(h => ({
+      id: h.id,
+      assetId: h.maquina_id,
+      type: h.observaciones && h.observaciones.includes('[INCIDENCIA]') ? 'Incidencia' : 'Mantenimiento',
+      notes: h.observaciones || 'Sin detalles',
+      timestamp: h.fecha_fin ? new Date(h.fecha_fin).toLocaleString('es-ES') : h.fecha_inicio,
+      operator: h.operario_nombre,
+      photoUrls: [] // Can be populated if reading from uploads directory later
+    }));
+    res.json({ ok: true, data: formatted });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
