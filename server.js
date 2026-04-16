@@ -11,7 +11,7 @@ const app = express();
 const PORT = 3000;
 
 // URL del Webhook de Google Apps Script (Dejar vacío si no se usa)
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdBubE9pXHMoEaWRmgY0v8Xy0UHuoowEz1uq2nMd2difxwgZlCVJLqQswlrcN2_1YD/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyqHgCC_i-ASP8nlW-X88J4zhDJuG2nkXVLNxiIWC1bIu3AWFmPJJ2zl29Ys4_bkRhq/exec";
 
 app.use(cors());
 app.use(express.json());
@@ -194,8 +194,7 @@ app.post('/api/sesion/:id/completar', (req, res) => {
             maquina: detalle.sesion.maquina,
             sala: detalle.sesion.sala,
             operario: detalle.sesion.operario,
-            observaciones: detalle.sesion.observaciones,
-            items: detalle.items.map(i => `${i.descripcion}: ${i.completado ? '✅' : '❌'}`).join(' | ')
+            observaciones: detalle.sesion.observaciones
           };
           
           fetch(GOOGLE_SCRIPT_URL, {
