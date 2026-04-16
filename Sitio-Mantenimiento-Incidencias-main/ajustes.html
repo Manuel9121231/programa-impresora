@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Mantenimiento e Incidencias · Impresoras y QRs</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    /* ── Ajustes-specific overrides (uses shared design tokens from style.css) ── */
+
+    /* Wider main for admin panel */
+    .main-content { max-width: 800px; }
+
+    .subtitle {
+      font-size: .88rem;
+      color: var(--text-2);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .section-title {
+      font-size: .73rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-count {
+      background: rgba(59, 130, 246, .2);
+      color: var(--accent);
+      font-size: .7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    /* Machine rows */
+    .col-headers {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+      padding: 0 2px;
+    }
+    .col-headers span {
+      font-size: .72rem;
+      color: var(--text-3);
+    }
+    .col-h-id     { flex: 1 }
+    .col-h-space  { flex: 0 0 100px }
+    .col-h-type   { flex: 0 0 155px }
+    .col-h-status { flex: 0 0 74px; text-align: center; }
+
+    .machine-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .machine-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .machine-row .id-input    { flex: 1 }
+    .machine-row .space-input { flex: 0 0 100px }
+    .machine-row .type-input  { flex: 0 0 155px }
+
+    .btn-status {
+      flex: 0 0 74px;
+      height: 38px;
+      font-size: 0.75rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .btn-status.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .btn-status.inactive {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-del {
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .btn-del:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Saved banner */
+    .saved-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(52, 211, 153, .1);
+      border: 1px solid rgba(52, 211, 153, .3);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: .82rem;
+      color: var(--success);
+      margin-bottom: 12px;
+    }
+    .saved-banner.show { display: flex; }
+
+    /* QR Grid */
+    #qrGrid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+    #qrGrid.visible { display: grid; }
+
+    .qr-label {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px 14px 14px;
+      text-align: center;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .qr-label .qr-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .qr-placeholder canvas { display: none !important; }
+    .qr-placeholder img {
+      display: block !important;
+      width: 150px !important;
+      height: 150px !important;
+    }
+    .qr-label .mid {
+      font-family: var(--mono);
+      font-size: .95rem;
+      font-weight: 700;
+      color: #111;
+    }
+    .qr-label .mname {
+      font-size: .75rem;
+      color: #555;
+      margin-top: 3px;
+    }
+    .qr-label .murl {
+      font-size: .58rem;
+      color: #aaa;
+      margin-top: 5px;
+      word-break: break-all;
+    }
+
+    @keyframes gateShake {
+      0%, 100% { transform: translateX(0) }
+      25%, 75% { transform: translateX(-6px) }
+      50% { transform: translateX(6px) }
+    }
+
+    @media print {
+      body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+      body > :not(#mainWrap) { display: none !important; }
+      #mainWrap > .app-header { display: none !important; }
+      #mainWrap > .main-content > :not(#qrGrid) { display: none !important; }
+      #mainWrap, .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: none !important;
+      }
+      #qrGrid {
+        display: grid !important;
+        gap: 10px;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .qr-label {
+        border: 1px solid #ddd;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <!-- ── Password Gate (blocks ALL content until authenticated) ── -->
+  <style>
+    #authGate {
+      position:fixed; inset:0; z-index:9999;
+      background: var(--bg);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .auth-card {
+      background: var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:36px 28px; max-width:330px; width:100%; text-align:center;
+      position: relative; overflow: hidden;
+    }
+    .auth-card::before {
+      content:''; position:absolute; inset:0;
+      background: linear-gradient(135deg, rgba(59,130,246,0.04), transparent 60%);
+      pointer-events: none;
+    }
+    .auth-title { font-size:1.2rem; font-weight:700; color:var(--text-1); margin-bottom:8px; }
+    .auth-desc { font-size:.83rem; color:var(--text-2); margin-bottom:22px; }
+    .auth-input {
+      width:100%; background:var(--bg-card-2); border:1px solid var(--border); border-radius:var(--radius-sm);
+      color:var(--text-1); font-family:var(--mono); font-size:1rem; padding:12px;
+      outline:none; text-align:center; letter-spacing:.15em; margin-bottom:8px;
+      transition: border-color .2s, box-shadow .2s; display:block;
+    }
+    .auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+    .auth-link { display:block; margin-top:16px; font-size:.8rem; color:var(--text-3); text-decoration:none; transition: .2s; }
+    .auth-link:hover { color: var(--text-1); }
+  </style>
+  <div id="authGate">
+    <div class="auth-card">
+      <div style="font-size:2.2rem;margin-bottom:14px">🔒</div>
+      <h2 class="auth-title">Acceso restringido</h2>
+      <p class="auth-desc">Solo administradores pueden gestionar las impresoras.</p>
+      <input id="gateInput" type="password" class="auth-input" placeholder="Contraseña" />
+      <p id="gateError" style="font-size:.78rem;color:var(--danger);min-height:18px;margin-bottom:12px"></p>
+      <button id="gateBtn" class="btn btn-primary" style="width:100%;padding:13px;">
+        Entrar
+      </button>
+      <a href="index.html" class="auth-link">← Volver a la app</a>
+    </div>
+  </div>
+
+  <!-- Main content — hidden until auth passes -->
+  <div id="mainWrap" style="display:none">
+
+    <header class="app-header">
+      <div class="header-inner" style="max-width:800px;">
+        <div class="logo">
+          <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+            <img src="logo-brain.png" alt="La Estación" class="logo-icon-img" />
+            <div>
+              <span class="logo-text">Mantenimiento e Incidencias</span>
+              <span style="font-size:.8rem;color:var(--text-2);margin-left:4px;">· Impresoras y etiquetas QR</span>
+            </div>
+          </a>
+        </div>
+        <div class="header-meta">
+          <button id="btnHistory" class="btn-icon" title="Ver Historial" style="background:none;border:none;color:var(--text-2);font-size:1.2rem;cursor:pointer;padding:0 5px;transition:color 0.2s;">📋</button>
+          <a href="index.html" class="btn btn-ghost btn-sm" style="text-decoration:none;">← Volver</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <h1>Registro de impresoras</h1>
+      <p class="subtitle">
+        Define aquí la lista de impresoras que la app principal usa como selector.<br>
+        Después genera e imprime un QR por máquina — al escanearlo, la app se abre directamente.
+      </p>
+
+      <!-- Password change -->
+      <div class="card no-print">
+        <div class="section-title">Contraseña de administrador</div>
+        <p style="font-size:.82rem;color:var(--text-2);margin-bottom:12px">Se guarda en Google Sheets.</p>
+        <div style="display:flex;gap:8px">
+          <input id="newPass" type="password" class="text-input" placeholder="Nueva contraseña"
+            style="max-width:260px" />
+          <button class="btn btn-ghost" id="btnSavePass">Guardar contraseña</button>
+        </div>
+        <p id="passMsg" style="font-size:.75rem;color:var(--text-3);margin-top:8px"></p>
+      </div>
+
+      <!-- Email notifications -->
+      <div class="card no-print">
+        <div class="section-title">Notificaciones por email</div>
+        <p style="font-size:.82rem;color:var(--text-2);margin-bottom:12px">Recibe un email cada vez que se registre una incidencia o mantenimiento. Separa varios emails con comas. Déjalo vacío para desactivar.</p>
+        <div style="display:flex;gap:8px">
+          <input id="notifEmail" type="text" class="text-input" placeholder="admin@ejemplo.com, jefe@ejemplo.com"
+            style="flex:1" />
+          <button class="btn btn-ghost" id="btnSaveEmail">Guardar</button>
+        </div>
+        <p id="emailMsg" style="font-size:.75rem;color:var(--text-3);margin-top:8px"></p>
+      </div>
+
+      <!-- Machine list -->
+      <div class="card no-print">
+        <div class="section-title">
+          Lista de impresoras
+          <span class="badge-count" id="countBadge">0</span>
+        </div>
+        <div class="saved-banner" id="savedBanner">✓ Lista guardada — la app principal la usará automáticamente</div>
+        <div class="col-headers">
+          <span class="col-h-id">ID de impresora</span>
+          <span class="col-h-space">Espacio</span>
+          <span class="col-h-type">Tipo</span>
+          <span class="col-h-status">Estado</span>
+          <span style="flex:0 0 34px"></span>
+        </div>
+        <div class="machine-rows" id="machineRows"></div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="btnAdd">+ Añadir impresora</button>
+          <button class="btn btn-ghost" id="btnPaste">📋 Pegar lista</button>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <a id="btnOpenSheets" href="#" target="_blank" class="btn btn-ghost" style="text-decoration:none;display:none;">📊 Abrir Sheets</a>
+            <button class="btn btn-primary" id="btnSave">💾 Guardar lista</button>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- Generate -->
+      <div class="card no-print">
+        <div class="section-title">Generar etiquetas QR</div>
+        <div style="margin-bottom:12px;">
+          <select id="qrTextFormat" class="text-input select-input">
+            <option value="id">Mostrar ID bajo el QR</option>
+            <option value="none">Sin texto (Solo QR)</option>
+          </select>
+        </div>
+        <div style="margin-bottom:20px; display:flex; flex-direction:column; gap:8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; color:var(--text-2);">
+            <input type="checkbox" id="chkActionText" checked />
+            Añadir texto personalizado al pie
+          </label>
+          <input type="text" id="actionTextInput" class="text-input" value="INCIDENCIAS Y MANTENIMIENTO" style="font-size:0.85rem;" />
+          
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer; color:var(--text-2); margin-top:8px;">
+            <input type="checkbox" id="chkSpace" checked />
+            Incluir Espacio (Maker/Robot) debajo del ID
+          </label>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnGenerate">Generar QRs</button>
+          <button class="btn btn-submit" id="btnPrint" style="display:none">🖨 Imprimir</button>
+          <button class="btn btn-ghost" id="btnDownload" style="display:none">📥 Descargar</button>
+        </div>
+      </div>
+
+      <div id="qrGrid"></div>
+    </main>
+
+    <!-- Paste modal -->
+    <div id="pasteModal" class="overlay hidden" style="z-index:100;">
+      <div class="card" style="max-width:460px;width:100%;animation:pop-in 0.35s cubic-bezier(0.34,1.56,0.64,1);">
+        <h3 style="margin-bottom:8px">Pegar lista de IDs</h3>
+        <p style="font-size:.82rem;color:var(--text-2);margin-bottom:12px">Un ID de impresora por línea:<br>
+          <code style="font-size:.76rem;font-family:var(--mono);">MKR-3D-01</code>
+        </p>
+        <textarea id="pasteArea" class="text-input textarea" style="font-family:var(--mono);font-size:.85rem;min-height:130px;"
+          placeholder="MKR-3D-01&#10;MKR-3D-02&#10;ROB-3D-01"></textarea>
+        <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end">
+          <button class="btn btn-ghost" id="btnPasteCancel">Cancelar</button>
+          <button class="btn btn-primary" id="btnPasteOk">Importar</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── Safe localStorage (Safari private mode throws DOMException) ──────────────
+      const safeStorage = {
+        get: (k, def = null) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch { return def; } },
+        set: (k, v)        => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+        del: (k)           => { try { localStorage.removeItem(k); } catch { /* private mode */ } },
+      };
+
+
+
+      // ── Hardcoded config — edit here to change ─────────────────
+      const SHEETS_URL = 'https://script.google.com/macros/s/AKfycby6MV3_24-q_CWB4w2DEGleREdgrGAvGyhmjJqi-gnpEZ5Q8aZgWRsEBM06qBaNGhA/exec';
+      // Calcula la URL base dinámicamente según dónde esté alojada la app
+      const APP_URL = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
+
+      // Session password — only lives in memory after successful auth
+      let sessionPassword = sessionStorage.getItem('mantapp_auth_pw') || '';
+
+      // Load config (sensitive fields only returned if password is correct)
+      function loadConfig(pw) {
+        const url = pw ? `${SHEETS_URL}?action=getConfig&pw=${encodeURIComponent(pw)}` : `${SHEETS_URL}?action=getConfig`;
+        fetch(url, { cache: 'no-store' })
+          .then(r => r.json())
+          .then(j => {
+            if (j.config && j.config.notification_email !== undefined) {
+              const emailField = document.getElementById('notifEmail');
+              if (emailField) emailField.value = j.config.notification_email;
+            }
+            if (j.config && j.config.sheet_url) {
+              const btn = document.getElementById('btnOpenSheets');
+              if (btn) { btn.href = j.config.sheet_url; btn.style.display = ''; }
+            }
+          })
+          .catch(() => { });
+      }
+
+      const LS_KEY = 'mantapp_machines';
+
+      const machineRows = document.getElementById('machineRows');
+      const btnAdd = document.getElementById('btnAdd');
+      const btnSave = document.getElementById('btnSave');
+      const btnGenerate = document.getElementById('btnGenerate');
+      const btnPrint = document.getElementById('btnPrint');
+      const qrGrid = document.getElementById('qrGrid');
+      const countBadge = document.getElementById('countBadge');
+      const savedBanner = document.getElementById('savedBanner');
+      const pasteModal = document.getElementById('pasteModal');
+      const pasteArea = document.getElementById('pasteArea');
+
+      // ── Init ────────────────────────────────────────────────────
+      async function initMachines() {
+        // 1. Try cache first for immediate display
+        const saved = JSON.parse(safeStorage.get(LS_KEY) || '[]');
+        if (saved.length) {
+          machineRows.innerHTML = '';
+          saved.forEach(m => addRow(m.id, m.space, m.type, m.status));
+          savedBanner.classList.add('show');
+          savedBanner.textContent = '⚡ Actualizando lista...';
+        } else {
+          addRow(); addRow(); addRow();
+        }
+        updateCount();
+
+        // 2. Fetch fresh from cloud — ALWAYS re-render to fix sync issues
+        if (!SHEETS_URL) return;
+        try {
+          const res = await fetch(`${SHEETS_URL}?action=getMachines`, { cache: 'no-store' });
+          const json = await res.json();
+          if (json.status === 'ok' && json.machines.length) {
+            safeStorage.set(LS_KEY, JSON.stringify(json.machines));
+            machineRows.innerHTML = '';
+            json.machines.forEach(m => addRow(m.id, m.space, m.type, m.status));
+            updateCount();
+            savedBanner.classList.add('show');
+            savedBanner.textContent = '✓ Lista sincronizada con la nube';
+          }
+        } catch (e) {
+          console.error('[initMachines] Cloud fetch failed:', e);
+          if (saved.length) savedBanner.textContent = '⚠ Sin conexión — mostrando caché';
+        }
+      }
+
+      initMachines();
+
+      // ── Row management ───────────────────────────────────────────
+      function addRow(id = '', space = 'Maker', type = 'Impresora 3D', status = 'Activa') {
+        const row = document.createElement('div');
+        row.className = 'machine-row';
+        row.innerHTML = `
+    <input type="text" class="text-input id-input" placeholder="EJ-0042" value="${escHtml(id)}" />
+    
+    <select class="text-input space-input" style="padding:10px 8px;">
+      <option value="Maker" ${space === 'Maker' ? 'selected' : ''}>Maker</option>
+      <option value="Robot" ${space === 'Robot' ? 'selected' : ''}>Robot</option>
+    </select>
+    
+    <select class="text-input type-input" style="padding:10px 8px;">
+      <option value="Impresora 3D" ${type === 'Impresora 3D' ? 'selected' : ''}>Impresora 3D</option>
+      <option value="Cortadora Láser" ${type === 'Cortadora Láser' ? 'selected' : ''}>Cortadora Láser</option>
+    </select>
+
+    <button class="btn-status ${status === 'Inactiva' ? 'inactive' : 'active'}" data-status="${status === 'Inactiva' ? 'Inactiva' : 'Activa'}">
+      ${status === 'Inactiva' ? 'Inactiva' : 'Activa'}
+    </button>
+    <button class="btn-del" title="Eliminar fila">✕</button>
+  `;
+        
+        // Setup status toggle behavior
+        const btnToggle = row.querySelector('.btn-status');
+        btnToggle.addEventListener('click', () => {
+          const isActiva = btnToggle.getAttribute('data-status') === 'Activa';
+          if (isActiva) {
+            btnToggle.setAttribute('data-status', 'Inactiva');
+            btnToggle.textContent = 'Inactiva';
+            btnToggle.className = 'btn-status inactive';
+          } else {
+            btnToggle.setAttribute('data-status', 'Activa');
+            btnToggle.textContent = 'Activa';
+            btnToggle.className = 'btn-status active';
+          }
+          updateCount(); // mark as modified essentially
+        });
+
+        row.querySelector('.btn-del').addEventListener('click', () => { row.remove(); updateCount(); });
+        row.querySelectorAll('input, select').forEach(i => i.addEventListener('input', updateCount));
+        machineRows.appendChild(row);
+        updateCount();
+        return row;
+      }
+      function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+
+      btnAdd.addEventListener('click', () => {
+        const r = addRow();
+        r.querySelector('.id-input').focus();
+      });
+
+      function updateCount() {
+        const n = getMachines().length;
+        countBadge.textContent = n;
+      }
+
+      function getMachines() {
+        return [...machineRows.querySelectorAll('.machine-row')]
+          .map(r => ({
+            id: r.querySelector('.id-input').value.trim().toUpperCase(),
+            space: r.querySelector('.space-input').value,
+            type: r.querySelector('.type-input').value,
+            status: r.querySelector('.btn-status').getAttribute('data-status')
+          }))
+          .filter(m => m.id.length > 0);
+      }
+
+      // ── Save ─────────────────────────────────────────────────────
+      btnSave.addEventListener('click', async () => {
+        const machines = getMachines();
+        if (!machines.length) { alert('Añade al menos una impresora antes de guardar.'); return; }
+
+        localStorage.setItem(LS_KEY, JSON.stringify(machines));
+
+        btnSave.disabled = true;
+        btnSave.textContent = 'Guardando…';
+
+        try {
+          await fetch(SHEETS_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'saveMachines', machines }),
+          });
+          savedBanner.textContent = '✔ Lista guardada en Google Sheets — visible en todos los dispositivos';
+        } catch (_) {
+          savedBanner.textContent = '⚠ Sin conexión — guardado solo localmente';
+        }
+
+        savedBanner.classList.add('show');
+        btnSave.disabled = false;
+        btnSave.textContent = '💾 Guardar lista';
+      });
+
+
+      // ── Paste ─────────────────────────────────────────────────────
+      document.getElementById('btnPaste').addEventListener('click', () => {
+        pasteModal.classList.remove('hidden'); pasteArea.focus();
+      });
+      document.getElementById('btnPasteCancel').addEventListener('click', () => {
+        pasteModal.classList.add('hidden');
+      });
+      document.getElementById('btnPasteOk').addEventListener('click', () => {
+        pasteArea.value.split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+          const sep = line.includes('\t') ? '\t' : ',';
+          const [id] = line.split(sep);
+          if(id) addRow(id.trim());
+        });
+        pasteArea.value = ''; pasteModal.classList.add('hidden');
+      });
+
+      // ── Generate QRs ─────────────────────────────────────────────
+      btnGenerate.addEventListener('click', () => {
+        const base = APP_URL.replace(/\/$/, '');
+        const machines = getMachines();
+        if (!machines.length) { alert('Añade al menos una impresora.'); return; }
+
+        qrGrid.innerHTML = '';
+        if (!qrGrid.classList.contains('visible')) {
+          qrGrid.classList.add('visible');
+          qrGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        machines.forEach(({ id, space }) => {
+          const url = `${base}/index.html?id=${encodeURIComponent(id)}`;
+
+          // Create QR instance
+          const qr = qrcode(0, 'M'); // 0 forces auto layout
+          qr.addData(url);
+          qr.make();
+          
+          // Generate raw GIF base64 and standard img tag setup
+          const gifData = qr.createDataURL(15, 0);
+          const rawId = id.replace(/[^a-zA-Z0-9]/g, ''); // safe strictly alphanumeric ID for DOM
+
+          const format = document.getElementById('qrTextFormat').value;
+          const addAction = document.getElementById('chkActionText').checked;
+          const actionText = document.getElementById('actionTextInput').value.trim().toUpperCase();
+
+          const addSpace = document.getElementById('chkSpace').checked;
+
+          let textHtml = '';
+          if (format === 'id') {
+            textHtml += `<div class="mid">${id}</div>`;
+            if (addSpace && space) textHtml += `<div class="mname" style="color:var(--accent);font-weight:600">${space.toUpperCase()}</div>`;
+          }
+
+          if (addAction && actionText) {
+            textHtml += `<div class="mname" style="font-size:0.65rem; letter-spacing:0px; opacity:0.8; margin-top:1px; white-space:nowrap; overflow:hidden;">${actionText}</div>`;
+          }
+
+          // Build card HTML and inject
+          const cell = document.createElement('div');
+          cell.className = 'qr-label';
+          cell.innerHTML = `
+      <div class="qr-wrap"><div class="qr-placeholder"><img id="qrimg-${rawId}" src="${gifData}" alt="QR ${id}"></div></div>
+      ${textHtml}
+    `;
+          qrGrid.appendChild(cell);
+
+          // Convert the GIF to a high-quality PNG transparently in the background 
+          // so users right-clicking the image get a standard static PNG file.
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width; canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            
+            const pngImg = document.getElementById(`qrimg-${rawId}`);
+            if (pngImg) pngImg.src = canvas.toDataURL('image/png', 1.0);
+          };
+          img.src = gifData;
+        });
+
+        btnPrint.style.display = 'inline-flex';
+        document.getElementById('btnDownload').style.display = 'inline-flex';
+      });
+      
+      // Auto-update QRs if options change while grid is visible
+      function autoUpdateQR() {
+        if (qrGrid.classList.contains('visible')) {
+          btnGenerate.click();
+        }
+      }
+      document.getElementById('qrTextFormat').addEventListener('change', autoUpdateQR);
+      document.getElementById('chkActionText').addEventListener('change', autoUpdateQR);
+      document.getElementById('chkSpace').addEventListener('change', autoUpdateQR);
+      document.getElementById('actionTextInput').addEventListener('input', () => {
+        clearTimeout(window.qrTypeTimeout);
+        window.qrTypeTimeout = setTimeout(autoUpdateQR, 250);
+      });
+
+      btnPrint.addEventListener('click', () => window.print());
+
+      document.getElementById('btnDownload').addEventListener('click', () => {
+        const btn = document.getElementById('btnDownload');
+        btn.textContent = 'Generando vector...';
+        btn.disabled = true;
+
+        const { jsPDF } = window.jspdf;
+        // A4 sheet: 210 x 297 mm
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        
+        const labels = Array.from(qrGrid.querySelectorAll('.qr-label'));
+        if (!labels.length) { btn.disabled = false; return; }
+
+        const cols = 3;
+        const rows = 4; // 3x4 = 12 cards per A4 page
+        const startX = 14; 
+        const startY = 16;
+        const cellW = 54; 
+        const cellH = 62; 
+        const spacingX = 10;
+        const spacingY = 10;
+
+        labels.forEach((label, i) => {
+          const indexOnPage = i % (cols * rows);
+          if (indexOnPage === 0 && i > 0) doc.addPage();
+
+          const r = Math.floor(indexOnPage / cols);
+          const c = indexOnPage % cols;
+          
+          const x = startX + c * (cellW + spacingX);
+          const y = startY + r * (cellH + spacingY);
+
+          // Extract values
+          const img = label.querySelector('img');
+          const idStr = label.querySelector('.mid')?.textContent || '';
+          const spaceStr = label.querySelector('.mname')?.textContent || '';
+          const urlStr = label.querySelector('.murl')?.textContent || '';
+
+          // Guide border (light grey for cutting)
+          doc.setDrawColor(210, 210, 210);
+          doc.setLineWidth(0.3);
+          doc.rect(x, y, cellW, cellH, 'S');
+
+          // QR Image (Centered: cell is 54 wide, img is 40, offset is 7)
+          if (img && img.src) doc.addImage(img.src, 'PNG', x + 7, y + 4, 40, 40);
+
+          const format = document.getElementById('qrTextFormat').value;
+          const addAction = document.getElementById('chkActionText').checked;
+          const addSpace = document.getElementById('chkSpace').checked;
+
+          // Text layout
+          doc.setTextColor(20, 20, 20);
+          doc.setFont('helvetica', 'bold');
+          
+          if (format === 'id') {
+            doc.setFontSize(13);
+            doc.text(idStr, x + (cellW/2), y + 49, { align: 'center' });
+            if (addSpace && spaceStr) {
+               doc.setFontSize(9);
+               doc.setTextColor(37, 99, 235);
+               doc.text(spaceStr, x + (cellW/2), y + 54, { align: 'center' });
+            }
+          }
+
+          if (addAction && actionText) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6.5);
+            doc.setTextColor(100, 100, 100);
+            doc.text(actionText.substring(0, 50), x + (cellW/2), y + 59, { align: 'center', maxWidth: 50 });
+          }
+        });
+
+        doc.save('Etiquetas_QR_Impresoras.pdf');
+        
+        btn.textContent = '📥 Descargar';
+        btn.disabled = false;
+      });
+
+      // ── Save notification email ────────────────────────────────
+      document.getElementById('btnSaveEmail').addEventListener('click', async () => {
+        const email = document.getElementById('notifEmail').value.trim();
+        const msg = document.getElementById('emailMsg');
+
+        msg.textContent = 'Guardando…';
+        msg.style.color = '';
+        try {
+          await fetch(SHEETS_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'saveConfig', key: 'notification_email', value: email }),
+          });
+          msg.style.color = 'var(--success)';
+          msg.textContent = email ? '✓ Notificaciones activadas' : '✓ Notificaciones desactivadas';
+          setTimeout(() => { msg.style.color = ''; msg.textContent = ''; }, 4000);
+        } catch (_) {
+          msg.style.color = 'var(--danger)';
+          msg.textContent = '⚠ Error al guardar — comprueba la conexión';
+        }
+      });
+
+      // ── Change password (Sheets-backed) ───────────────────────────
+      document.getElementById('btnSavePass').addEventListener('click', async () => {
+        const newPass = document.getElementById('newPass').value.trim();
+        const msg = document.getElementById('passMsg');
+        if (!newPass) { msg.textContent = '⚠ Escribe una contraseña primero.'; return; }
+
+        msg.textContent = 'Guardando…';
+        try {
+          await fetch(SHEETS_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ action: 'saveConfig', key: 'admin_password', value: newPass }),
+          });
+          sessionPassword = newPass;
+          sessionStorage.setItem('mantapp_auth_pw', newPass);
+          document.getElementById('newPass').value = '';
+          msg.style.color = '#34d399';
+          msg.textContent = '✓ Contraseña guardada';
+          setTimeout(() => { msg.style.color = ''; msg.textContent = ''; }, 4000);
+        } catch (_) {
+          msg.style.color = '#f87171';
+          msg.textContent = '⚠ Error al guardar — comprueba la conexión';
+        }
+      });
+
+      // ── Password gate (server-side verification) ─────────────────
+      const authGate = document.getElementById('authGate');
+      const mainWrap = document.getElementById('mainWrap');
+      const gateInput = document.getElementById('gateInput');
+      const gateError = document.getElementById('gateError');
+      const gateBtn = document.getElementById('gateBtn');
+
+      function unlockAdmin(pw) {
+        authGate.style.display = 'none';
+        mainWrap.style.display = 'block';
+        sessionPassword = pw;
+        sessionStorage.setItem('mantapp_auth_pw', pw);
+        loadConfig(pw); // fetch sensitive config with password proof
+      }
+
+      function checkGate() {
+        // If we have a stored password, verify it's still valid
+        if (sessionPassword) {
+          fetch(`${SHEETS_URL}?action=verifyPassword&pw=${encodeURIComponent(sessionPassword)}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(j => {
+              if (j.valid) {
+                unlockAdmin(sessionPassword);
+              } else {
+                sessionStorage.removeItem('mantapp_auth_pw');
+                sessionPassword = '';
+                gateInput.focus();
+              }
+            })
+            .catch(() => { gateInput.focus(); });
+        } else {
+          gateInput.focus();
+        }
+      }
+      checkGate();
+
+      async function tryAuth() {
+        const pw = gateInput.value;
+        if (!pw) return;
+
+        gateBtn.disabled = true;
+        gateBtn.textContent = 'Verificando…';
+        gateError.textContent = '';
+
+        try {
+          const res = await fetch(`${SHEETS_URL}?action=verifyPassword&pw=${encodeURIComponent(pw)}`, { cache: 'no-store' });
+          const json = await res.json();
+          if (json.valid) {
+            unlockAdmin(pw);
+          } else {
+            gateError.textContent = '❌ Contraseña incorrecta';
+            gateInput.value = '';
+            gateInput.style.animation = 'none';
+            requestAnimationFrame(() => { gateInput.style.animation = 'gateShake .35s ease'; });
+            setTimeout(() => { gateError.textContent = ''; }, 2500);
+          }
+        } catch (_) {
+          gateError.textContent = '⚠ Error de conexión';
+        }
+
+        gateBtn.disabled = false;
+        gateBtn.textContent = 'Entrar';
+      }
+
+      gateBtn.addEventListener('click', tryAuth);
+      gateInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryAuth(); });
+
+    </script>
+
+  </div><!-- /mainWrap -->
+
+</body>
+
+</html>

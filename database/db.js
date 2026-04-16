@@ -58,24 +58,6 @@ function inicializarEsquema() {
       creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE TABLE IF NOT EXISTS plantillas_checklist (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      maquina_id INTEGER NOT NULL,
-      nombre TEXT NOT NULL,
-      activa INTEGER DEFAULT 1,
-      FOREIGN KEY (maquina_id) REFERENCES maquinas(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS items_checklist (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      plantilla_id INTEGER NOT NULL,
-      descripcion TEXT NOT NULL,
-      es_critico INTEGER DEFAULT 0,
-      orden INTEGER DEFAULT 0,
-      categoria TEXT DEFAULT 'general',
-      FOREIGN KEY (plantilla_id) REFERENCES plantillas_checklist(id)
-    );
-
     CREATE TABLE IF NOT EXISTS sesiones_mantenimiento (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       maquina_id INTEGER NOT NULL,
@@ -88,15 +70,15 @@ function inicializarEsquema() {
       FOREIGN KEY (operario_id) REFERENCES operarios(id)
     );
 
-    CREATE TABLE IF NOT EXISTS registros_items (
+    CREATE TABLE IF NOT EXISTS incidencias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sesion_id INTEGER NOT NULL,
-      item_id INTEGER NOT NULL,
-      completado INTEGER DEFAULT 0,
-      valor_texto TEXT,
-      completado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (sesion_id) REFERENCES sesiones_mantenimiento(id),
-      FOREIGN KEY (item_id) REFERENCES items_checklist(id)
+      maquina_nombre TEXT NOT NULL,
+      maquina_id INTEGER,
+      tipo TEXT NOT NULL,
+      notas TEXT,
+      fotos TEXT DEFAULT '[]',
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (maquina_id) REFERENCES maquinas(id)
     );
   `);
 
@@ -109,56 +91,35 @@ function inicializarEsquema() {
 
 function insertarDatosIniciales() {
   const insertSala = db.prepare('INSERT INTO salas (nombre, descripcion) VALUES (?, ?)');
-  const sala1 = insertSala.run('Espacio Maker', 'Espacio Maker – Impresoras A-01 a A-06');
-  const sala2 = insertSala.run('Espacio Robot', 'Espacio Robot – Impresoras B-01 a B-06');
+  const sala1 = insertSala.run('Espacio Maker', 'Espacio Maker – Impresoras A-01 a A-10');
+  const sala2 = insertSala.run('Espacio Robot', 'Espacio Robot – Impresoras B-01 a B-04');
 
   const maquinas = [
-    // Espacio Maker (A-01 a A-06)
+    // Espacio Maker (A-01 a A-10)
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-01', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-02', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-03', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-04', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-05', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
     { sala: sala1.lastInsertRowid, nombre: 'Impresora A-06', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
+    { sala: sala1.lastInsertRowid, nombre: 'Impresora A-07', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
+    { sala: sala1.lastInsertRowid, nombre: 'Impresora A-08', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'activa' },
+    { sala: sala1.lastInsertRowid, nombre: 'Impresora A-09', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'inactiva' },
+    { sala: sala1.lastInsertRowid, nombre: 'Impresora A-10', tipo: 'Impresora FDM', modelo: 'Prusa MK4', estado: 'inactiva' },
     
-    // Espacio Robot (B-01 a B-06)
+    // Espacio Robot (B-01 a B-04)
     { sala: sala2.lastInsertRowid, nombre: 'Impresora B-01', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
     { sala: sala2.lastInsertRowid, nombre: 'Impresora B-02', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
     { sala: sala2.lastInsertRowid, nombre: 'Impresora B-03', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
-    { sala: sala2.lastInsertRowid, nombre: 'Impresora B-04', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
-    { sala: sala2.lastInsertRowid, nombre: 'Impresora B-05', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
-    { sala: sala2.lastInsertRowid, nombre: 'Impresora B-06', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'activa' },
+    { sala: sala2.lastInsertRowid, nombre: 'Impresora B-04', tipo: 'Impresora FDM', modelo: 'Bambu Lab X1', estado: 'inactiva' },
   ];
 
   const insertMaquina = db.prepare(
     'INSERT INTO maquinas (sala_id, nombre, tipo, modelo, estado) VALUES (?, ?, ?, ?, ?)'
   );
 
-  const insertPlantilla = db.prepare(
-    'INSERT INTO plantillas_checklist (maquina_id, nombre) VALUES (?, ?)'
-  );
-
-  const insertItem = db.prepare(
-    'INSERT INTO items_checklist (plantilla_id, descripcion, es_critico, orden, categoria) VALUES (?, ?, ?, ?, ?)'
-  );
-
   for (const m of maquinas) {
-    const maq = insertMaquina.run(m.sala, m.nombre, m.tipo, m.modelo, m.estado);
-    const plt = insertPlantilla.run(maq.lastInsertRowid, 'Mantenimiento Preventivo Estándar');
-
-    const items = [
-      { desc: 'Nivel de aceite correcto', critico: 1, orden: 1, cat: 'lubricacion' },
-      { desc: 'Tensión de cadena/correa correcta', critico: 1, orden: 2, cat: 'mecanico' },
-      { desc: 'Limpieza del cabezal/extrusor', critico: 1, orden: 3, cat: 'limpieza' },
-      { desc: 'Verificar que no hay filamento obstruido', critico: 0, orden: 4, cat: 'mecanico' },
-      { desc: 'Limpieza general de la cama de impresión', critico: 0, orden: 5, cat: 'limpieza' },
-      { desc: 'Comprobar conexiones eléctricas', critico: 0, orden: 6, cat: 'electrico' },
-      { desc: 'Otros (campo libre)', critico: 0, orden: 7, cat: 'otros' },
-    ];
-
-    for (const item of items) {
-      insertItem.run(plt.lastInsertRowid, item.desc, item.critico, item.orden, item.cat);
-    }
+    insertMaquina.run(m.sala, m.nombre, m.tipo, m.modelo, m.estado);
   }
 
   // Operarios de ejemplo
@@ -218,20 +179,7 @@ function getMaquinaById(id) {
   `).get(id);
 }
 
-function getChecklistDeMaquina(maquinaId) {
-  const db = getDb();
-  const plantilla = db.prepare(
-    'SELECT * FROM plantillas_checklist WHERE maquina_id = ? AND activa = 1 ORDER BY id DESC LIMIT 1'
-  ).get(maquinaId);
 
-  if (!plantilla) return null;
-
-  const items = db.prepare(
-    'SELECT * FROM items_checklist WHERE plantilla_id = ? ORDER BY orden, id'
-  ).all(plantilla.id);
-
-  return { plantilla, items };
-}
 
 function verificarPin(pin) {
   return getDb().prepare('SELECT * FROM operarios WHERE pin = ? AND activo = 1').get(pin);
@@ -252,24 +200,7 @@ function iniciarSesion(maquinaId, operarioId) {
   return result.lastInsertRowid;
 }
 
-function marcarItem(sesionId, itemId, completado, valorTexto) {
-  const db = getDb();
-  // Upsert: actualizar si ya existe, insertar si no
-  const existe = db.prepare(
-    'SELECT id FROM registros_items WHERE sesion_id = ? AND item_id = ?'
-  ).get(sesionId, itemId);
 
-  if (existe) {
-    db.prepare(
-      'UPDATE registros_items SET completado = ?, valor_texto = ?, completado_en = CURRENT_TIMESTAMP WHERE sesion_id = ? AND item_id = ?'
-    ).run(completado ? 1 : 0, valorTexto || null, sesionId, itemId);
-  } else {
-    db.prepare(
-      'INSERT INTO registros_items (sesion_id, item_id, completado, valor_texto) VALUES (?, ?, ?, ?)'
-    ).run(sesionId, itemId, completado ? 1 : 0, valorTexto || null);
-  }
-  return true;
-}
 
 function completarSesion(sesionId, observaciones) {
   const db = getDb();
@@ -371,9 +302,7 @@ function getHistorial(filtros = {}) {
   return db.prepare(`
     SELECT sm.id, sm.iniciado_en, sm.completado_en, sm.observaciones,
       m.nombre as maquina, m.tipo as tipo_maquina, s.nombre as sala,
-      o.nombre as operario,
-      (SELECT COUNT(*) FROM registros_items ri WHERE ri.sesion_id = sm.id AND ri.completado = 1) as items_completados,
-      (SELECT COUNT(*) FROM registros_items ri WHERE ri.sesion_id = sm.id) as items_total
+      o.nombre as operario
     FROM sesiones_mantenimiento sm
     JOIN maquinas m ON m.id = sm.maquina_id
     JOIN salas s ON s.id = m.sala_id
@@ -449,23 +378,74 @@ function getSesionDetalle(sesionId) {
 
   if (!sesion) return null;
 
-  const items = db.prepare(`
-    SELECT ic.descripcion, ic.es_critico, ic.categoria, ic.orden,
-      ri.completado, ri.valor_texto, ri.completado_en
-    FROM items_checklist ic
-    JOIN plantillas_checklist pc ON pc.id = ic.plantilla_id
-    LEFT JOIN registros_items ri ON ri.item_id = ic.id AND ri.sesion_id = ?
-    WHERE pc.maquina_id = (SELECT maquina_id FROM sesiones_mantenimiento WHERE id = ?)
-    ORDER BY ic.orden
-  `).all(sesionId, sesionId);
+  return { sesion, items: [] };
+}
 
-  return { sesion, items };
+function crearMaquina(datos) {
+  const db = getDb();
+  const result = db.prepare(
+    'INSERT INTO maquinas (sala_id, nombre, tipo, modelo, estado, frecuencia_dias) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(datos.sala_id, datos.nombre, datos.tipo || 'Impresora 3D', datos.modelo || '', datos.estado || 'activa', datos.frecuencia_dias || 7);
+  return result.lastInsertRowid;
+}
+
+function eliminarMaquina(id) {
+  const db = getDb();
+  db.prepare('DELETE FROM sesiones_mantenimiento WHERE maquina_id = ?').run(id);
+  db.prepare('DELETE FROM maquinas WHERE id = ?').run(id);
+  return true;
+}
+
+// ─── Incidencias (nueva interfaz operario) ───────────────────────────────────
+
+function crearIncidencia(maquinaNombre, tipo, notas, fotos) {
+  const db = getDb();
+  // Buscar maquina_id por nombre para mantener la relación
+  const maquina = db.prepare('SELECT id FROM maquinas WHERE nombre = ? LIMIT 1').get(maquinaNombre);
+  const fotosJson = JSON.stringify(fotos || []);
+  const result = db.prepare(
+    'INSERT INTO incidencias (maquina_nombre, maquina_id, tipo, notas, fotos) VALUES (?, ?, ?, ?, ?)'
+  ).run(maquinaNombre, maquina ? maquina.id : null, tipo, notas || '', fotosJson);
+  return result.lastInsertRowid;
+}
+
+function getIncidencias(filtros = {}) {
+  const db = getDb();
+  let conditions = [];
+  const params = [];
+
+  if (filtros.maquina_nombre) {
+    conditions.push('maquina_nombre LIKE ?');
+    params.push('%' + filtros.maquina_nombre + '%');
+  }
+  if (filtros.tipo) {
+    conditions.push('tipo = ?');
+    params.push(filtros.tipo);
+  }
+  if (filtros.desde) {
+    conditions.push('date(timestamp) >= ?');
+    params.push(filtros.desde);
+  }
+  if (filtros.hasta) {
+    conditions.push('date(timestamp) <= ?');
+    params.push(filtros.hasta);
+  }
+
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+  return db.prepare(`
+    SELECT id, maquina_nombre, maquina_id, tipo, notas, fotos, timestamp
+    FROM incidencias
+    ${where}
+    ORDER BY timestamp DESC
+    LIMIT 200
+  `).all(...params);
 }
 
 module.exports = {
-  getDb, getSalas, getMaquinas, getMaquinaById, getChecklistDeMaquina,
-  verificarPin, iniciarSesion, marcarItem, completarSesion,
+  getDb, getSalas, getMaquinas, getMaquinaById,
+  verificarPin, iniciarSesion, completarSesion,
   getDashboard, getHistorial, getOperarios, crearOperario,
-  actualizarMaquina, getSesionDetalle,
-  getUsuarios, crearUsuario, eliminarUsuario
+  actualizarMaquina, crearMaquina, eliminarMaquina, getSesionDetalle,
+  getUsuarios, crearUsuario, eliminarUsuario,
+  crearIncidencia, getIncidencias
 };

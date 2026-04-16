@@ -142,7 +142,6 @@ async function enviarChecklist() {
     document.getElementById('exitoMaquina').textContent = maquinaData.nombre;
     document.getElementById('exitoOperario').textContent = operarioData.nombre;
     document.getElementById('exitoFecha').textContent = new Date().toLocaleString('es-ES');
-    document.getElementById('exitoPuntos').textContent = '✅ Registrado';
     showScreen('exito');
   } else {
     btn.disabled = false;

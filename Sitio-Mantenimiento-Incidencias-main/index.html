@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="description"
+    content="App de mantenimiento industrial — registra incidencias y mantenimientos con foto y ID." />
+  <title>Mantenimiento e Incidencias</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- ZXing for QR / barcode scanning -->
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <!-- QR code generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ─── Header ─────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <img src="logo-brain.png" alt="La Estación" class="logo-icon-img" />
+        <span class="logo-text">Mantenimiento e Incidencias</span>
+      </div>
+      <div class="header-meta">
+        <!-- QR button -->
+        <div class="qr-btn-wrap" id="qrBtnWrap">
+          <button id="btnQR" class="btn-icon" title="QR de esta página" style="background:none;border:none;color:var(--text-2);font-size:1.2rem;cursor:pointer;padding:0 5px;transition:color 0.2s;">&#x2317;</button>
+          <div id="qrPopover" class="qr-popover" style="display:none;">
+            <div class="qr-popover-inner">
+              <p class="qr-popover-label">Escanea para abrir en el móvil</p>
+              <div id="qrPopoverImg"></div>
+              <p id="qrPopoverUrl" class="qr-popover-url"></p>
+            </div>
+          </div>
+        </div>
+        <span id="clock" class="clock"></span>
+
+        <button id="btnHistory" class="btn-icon" title="Ver Historial" style="background:none;border:none;color:var(--text-2);font-size:1.2rem;cursor:pointer;padding:0 5px;transition:color 0.2s;">📋</button>
+        <span class="badge-status online" id="statusBadge">● Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main ────────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Step 1: Machine selector -->
+    <section class="card step-card" id="step1">
+      <div class="step-label"><span class="step-number">1</span> Seleccionar impresora</div>
+
+      <div class="field-group">
+        <label class="field-label" for="machineSelect">Impresora</label>
+        <select id="machineSelect" class="text-input select-input">
+          <option value="">Cargando impresoras...</option>
+        </select>
+        <p class="field-hint" id="machineHint"></p>
+      </div>
+
+      <button class="btn btn-primary btn-full" id="btnNext1" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+
+      <button class="btn btn-ghost" id="btnAdmin" style="margin-top:10px;width:100%;font-size:.8rem;opacity:.5">
+        🔒 Gestionar impresoras
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('btnHistory').click()" style="margin-top:8px;width:100%;font-size:.85rem;">
+        📋 Historial
+      </button>
+    </section>
+
+    <!-- Step 2: Type selector -->
+    <section class="card step-card locked" id="step2">
+      <div class="step-label"><span class="step-number">2</span> Tipo de registro</div>
+
+      <div class="type-grid">
+        <button class="type-card" id="typeIncidencia" data-type="Incidencia">
+          <span class="type-icon">⚠</span>
+          <span class="type-title">Incidencia</span>
+          <span class="type-desc">Avería, fallo o problema inesperado</span>
+        </button>
+        <button class="type-card" id="typeMantenimiento" data-type="Mantenimiento">
+          <span class="type-icon">🔧</span>
+          <span class="type-title">Mantenimiento</span>
+          <span class="type-desc">Revisión programada o preventiva</span>
+        </button>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="notes">
+          Observaciones 
+          <span id="notesHint" style="color:var(--warning); font-size:0.75rem; margin-left: 6px;">(Obligatorio)</span>
+        </label>
+        <textarea id="notes" class="text-input textarea" rows="3"
+          placeholder="Describe brevemente la situación…"></textarea>
+      </div>
+
+      <button class="btn btn-primary btn-full mt-4" id="btnNext2" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+    </section>
+
+    <!-- Step 3: Photo -->
+    <section class="card step-card locked" id="step3">
+      <div class="step-label"><span class="step-number">3</span> Fotografías</div>
+
+      <input type="file" id="photoInputCamera" accept="image/*" capture="environment" class="hidden" />
+      <input type="file" id="photoInputGallery" accept="image/*" multiple class="hidden" />
+
+      <!-- Thumbnail grid — tiles added by JS -->
+      <div class="photo-grid" id="photoGrid"></div>
+      
+      <div id="photoAddContainer" style="display:flex; gap:10px; margin-top:12px;">
+         <button type="button" class="btn btn-ghost" id="btnCamera" style="flex:1; padding:12px 0;">📸 Cámara</button>
+         <button type="button" class="btn btn-ghost" id="btnGallery" style="flex:1; padding:12px 0;">🖼 Galería</button>
+      </div>
+
+      <p class="field-hint" id="photoHint" style="margin-top:8px;color:var(--text2);font-size:.78rem">Puedes añadir hasta 5 fotos</p>
+
+      <button class="btn btn-primary btn-full mt-4" id="btnNext3" disabled>
+        Continuar <span class="arrow">→</span>
+      </button>
+    </section>
+
+    <!-- Step 4: Preview & Submit -->
+    <section class="card step-card locked" id="step4">
+      <div class="step-label"><span class="step-number">4</span> Confirmación</div>
+
+      <div class="summary-grid" id="summaryGrid"></div>
+
+      <button class="btn btn-submit btn-full mt-6" id="btnSubmit">
+        <span id="submitText">Enviar ↗</span>
+        <span id="submitSpinner" class="spinner hidden"></span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ─── Toast ────────────────────────────────────────────────────────────── -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ─── Success overlay ───────────────────────────────────────────────────── -->
+  <div class="overlay hidden" id="successOverlay">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>¡Registrado!</h2>
+      <p id="successDetail" style="margin-bottom: 24px; font-weight: 500;"></p>
+      <button class="btn btn-primary" id="btnNewRecord">Nuevo registro</button>
+    </div>
+  </div>
+
+  <!-- ─── WebRTC Camera Overlay (Desktop) ─────────────────────────────────────── -->
+  <div class="overlay hidden" id="cameraOverlay" style="z-index: 1000; display:none; justify-content:center; align-items:center; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px);">
+    <div class="card" style="width: 90%; max-width: 500px; padding: 20px; background:var(--card); border:1px solid var(--border); border-radius:12px;">
+      <h3 style="margin-bottom: 12px; font-size:1.1rem; color:var(--text1)">Cámara Web</h3>
+      <div style="position:relative; width:100%; aspect-ratio:4/3; background:#000; border-radius:8px; overflow:hidden; margin-bottom: 16px;">
+        <video id="camVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="btnCamClose" style="flex:1;">Cancelar</button>
+        <button class="btn btn-primary" id="btnCamCapture" style="flex:2;">📸 Capturar Foto</button>
+      </div>
+      <canvas id="camCanvas" class="hidden" style="display:none;"></canvas>
+    </div>
+  </div>
+
+  <!-- ─── History Overlay ───────────────────────────────────────────────────── -->
+  <div class="overlay hidden" id="historyOverlay">
+    <div class="history-card">
+      <div class="history-header">
+        <h2>Historial</h2>
+        <button id="btnCloseHistory" class="btn-icon">✕</button>
+      </div>
+      <div class="history-filters" style="display:flex; gap:10px;">
+         <select id="histFilterAsset" class="text-input select-input" style="padding:8px; font-size:0.85rem; flex:1;">
+           <option value="">Todas las máquinas...</option>
+         </select>
+         <select id="histFilterType" class="text-input select-input" style="padding:8px; font-size:0.85rem; flex:1;">
+           <option value="">Todos los tipos...</option>
+           <option value="Incidencia">Incidencias</option>
+           <option value="Mantenimiento">Mantenimientos</option>
+         </select>
+      </div>
+      <div class="history-list" id="historyList">
+        <!-- populated by js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Lightbox ──────────────────────────────────────────────────────────── -->
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <button id="lightboxClose" class="lightbox-close" title="Cerrar">✕</button>
+    <button id="lightboxPrev" class="lightbox-nav lightbox-prev" title="Anterior">‹</button>
+    <button id="lightboxNext" class="lightbox-nav lightbox-next" title="Siguiente">›</button>
+    <div class="lightbox-inner">
+      <img id="lightboxImg" src="" alt="Foto completa" />
+      <div id="lightboxCounter" class="lightbox-counter"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

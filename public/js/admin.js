@@ -32,6 +32,11 @@ function cambiarRolSimulado(nuevoRol) {
     }
   });
 
+  const btnNuevaMaquina = document.getElementById('btnNuevaMaquina');
+  if (btnNuevaMaquina) {
+    btnNuevaMaquina.style.display = rolActual === 'admin' ? 'inline-block' : 'none';
+  }
+
   // Re-render UI views dependent on role
   renderMaquinas(); 
   
@@ -51,6 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await cargarDatosBase();
   await cargarDashboard();
   cargarInfoServidor();
+  const selectRol = document.getElementById('simuladorRol');
+  if (selectRol) cambiarRolSimulado(selectRol.value);
 });
 
 async function cargarDatosBase() {
@@ -66,9 +73,14 @@ async function cargarDatosBase() {
   datosUsuarios = usuarios.data || [];
 
   // Poblar selects de salas
-  ['filtroSalaMaquinas', 'filtroSala', 'filtroSalaQR'].forEach(id => {
+  ['filtroSalaMaquinas', 'filtroSala', 'filtroSalaQR', 'nuevoMaquinaSala'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
+    if (id !== 'nuevoMaquinaSala') {
+      el.innerHTML = '<option value="">Todas las salas</option>';
+    } else {
+      el.innerHTML = '<option value="">Seleccione una sala...</option>';
+    }
     datosSalas.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id; opt.textContent = s.nombre;
@@ -79,6 +91,7 @@ async function cargarDatosBase() {
   // Poblar selects operarios (historial)
   const selOp = document.getElementById('filtroOperario');
   if (selOp) {
+    selOp.innerHTML = '<option value="">Todos los operarios</option>';
     datosOperarios.forEach(o => {
       const opt = document.createElement('option');
       opt.value = o.id; opt.textContent = o.nombre;
@@ -226,11 +239,7 @@ function renderMaquinas() {
     return;
   }
 
-  // Clasificar máquinas por espacio
-  const maker  = lista.filter(m => /A-\d+/.test(m.nombre));
-  const robot  = lista.filter(m => /B-\d+/.test(m.nombre));
-  const otras  = lista.filter(m => !/[AB]-\d+/.test(m.nombre));
-
+  // Clasificar máquinas por espacio dinámicamente según la base de datos
   function tarjetaMaquina(m) {
     const estadoLabel = {
       ok: '✅ Al día',
@@ -262,6 +271,7 @@ function renderMaquinas() {
           ${rolActual === 'admin' ? `
             <button class="btn btn-primary btn-sm" onclick="verQR(${m.id}, '${escapar(m.nombre)}', '${escapar(m.sala_nombre)}')">📱 QR</button>
             <button class="btn btn-outline btn-sm" onclick="editarMaquina(${m.id})">✏️ Editar</button>
+            <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);padding:4px 8px" onclick="eliminarMaquina(${m.id})" title="Eliminar máquina">🗑️</button>
           ` : `
             <button class="btn btn-primary btn-sm" onclick="verQR(${m.id}, '${escapar(m.nombre)}', '${escapar(m.sala_nombre)}')">📱 QR</button>
           `}
@@ -288,10 +298,28 @@ function renderMaquinas() {
     `;
   }
 
-  grid.innerHTML =
-    seccionEspacio('Espacio Maker', '🛠️', 'rgba(79,142,247,0.08)', maker) +
-    seccionEspacio('Espacio Robot', '🤖', 'rgba(16,185,129,0.08)', robot) +
-    seccionEspacio('Otras Máquinas', '🖨️', 'rgba(245,158,11,0.08)', otras);
+  let htmlResult = '';
+  const bgColors = ['rgba(79,142,247,0.08)', 'rgba(16,185,129,0.08)', 'rgba(245,158,11,0.08)', 'rgba(139,92,246,0.08)', 'rgba(236,72,153,0.08)'];
+  const iconos = ['🛠️', '🤖', '🖨️', '⚙️', '🏗️'];
+
+  datosSalas.forEach((sala, index) => {
+    // Si hay un filtro y no es esta sala, la ignoramos
+    if (salaFiltro && String(sala.id) !== String(salaFiltro)) return;
+
+    const maquinasSala = lista.filter(m => m.sala_id === sala.id);
+    if (maquinasSala.length > 0) {
+      const color = bgColors[index % bgColors.length];
+      const icono = iconos[index % iconos.length];
+      htmlResult += seccionEspacio(sala.nombre, icono, color, maquinasSala);
+    }
+  });
+
+  const maquinasSinSala = lista.filter(m => !m.sala_id);
+  if (maquinasSinSala.length > 0) {
+    htmlResult += seccionEspacio('Otras Máquinas', '🖨️', 'rgba(107,114,128,0.08)', maquinasSinSala);
+  }
+
+  grid.innerHTML = htmlResult;
 }
 
 function filtrarMaquinas() { renderMaquinas(); }
@@ -325,6 +353,57 @@ async function guardarMaquina() {
     cerrarModal('modalMaquina');
     await cargarDatosBase();
     renderMaquinas();
+  }
+}
+
+function abrirModalNuevaMaquina() {
+  document.getElementById('nuevoMaquinaNombre').value = '';
+  document.getElementById('nuevoMaquinaModelo').value = '';
+  document.getElementById('nuevoMaquinaTipo').value = 'Impresora FDM';
+  document.getElementById('nuevoMaquinaFrecuencia').value = '7';
+  document.getElementById('msgNuevaMaquina').innerHTML = '';
+  abrirModal('modalNuevaMaquina');
+}
+
+async function crearMaquina() {
+  const nombre = document.getElementById('nuevoMaquinaNombre').value.trim();
+  const sala_id = document.getElementById('nuevoMaquinaSala').value;
+  const tipo = document.getElementById('nuevoMaquinaTipo').value;
+  const frecuencia_dias = document.getElementById('nuevoMaquinaFrecuencia').value;
+  const modelo = document.getElementById('nuevoMaquinaModelo').value.trim();
+  const msg = document.getElementById('msgNuevaMaquina');
+
+  if (!nombre || !sala_id) {
+    msg.innerHTML = '<div class="alert alert-warning">⚠️ Nombre y Sala son obligatorios</div>';
+    return;
+  }
+
+  showLoader(true);
+  const res = await apiFetch('/api/maquinas', { 
+    method: 'POST', 
+    body: { nombre, sala_id, tipo, frecuencia_dias, modelo } 
+  });
+  showLoader(false);
+
+  if (res.ok) {
+    cerrarModal('modalNuevaMaquina');
+    await cargarDatosBase();
+    renderMaquinas();
+  } else {
+    msg.innerHTML = `<div class="alert alert-danger">❌ ${res.error}</div>`;
+  }
+}
+
+async function eliminarMaquina(id) {
+  if (!confirm('¿Estás seguro de que deseas eliminar esta máquina por completo? Se borrarán también sus registros de mantenimiento.')) return;
+  showLoader(true);
+  const res = await apiFetch(`/api/maquina/${id}`, { method: 'DELETE' });
+  showLoader(false);
+  if (res.ok) {
+    await cargarDatosBase();
+    renderMaquinas();
+  } else {
+    alert('Error al eliminar: ' + res.error);
   }
 }
 
@@ -432,7 +511,6 @@ async function cargarHistorial() {
       <td data-label="Operario">${r.operario}</td>
       <td data-label="Inicio" style="font-size:12px">${formatFechaHora(r.iniciado_en)}</td>
       <td data-label="Fin" style="font-size:12px">${formatFechaHora(r.completado_en)}</td>
-      <td data-label="Puntos"><span class="estado-badge ok">${r.items_completados}/${r.items_total}</span></td>
       <td data-label="Observ." style="font-size:12px;color:var(--text-muted)">${r.observaciones || '–'}</td>
       <td data-label="Acciones"><button class="btn btn-outline btn-sm" onclick="verDetalleSesion(${r.id})">Detalle</button></td>
     </tr>
@@ -456,16 +534,6 @@ async function verDetalleSesion(id) {
       </div>
       ${sesion.observaciones ? `<div style="margin-top:8px"><span class="text-muted">Observaciones:</span> ${sesion.observaciones}</div>` : ''}
     </div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">PUNTOS DEL CHECKLIST</div>
-    ${items.map(item => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${item.completado ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.05)'};border:1px solid ${item.completado ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.15)'};border-radius:8px;margin-bottom:6px">
-        <span style="font-size:18px">${item.completado ? '✅' : '⬜'}</span>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:${item.es_critico ? '700' : '400'}">${item.descripcion}${item.es_critico ? ' <span style="color:var(--danger);font-size:10px">● CRÍTICO</span>' : ''}</div>
-          ${item.valor_texto ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">Nota: ${item.valor_texto}</div>` : ''}
-        </div>
-      </div>
-    `).join('')}
   `;
   abrirModal('modalDetalle');
 }
@@ -473,9 +541,9 @@ async function verDetalleSesion(id) {
 function exportarCSV() {
   apiFetch('/api/historial').then(res => {
     if (!res.ok) return;
-    const rows = [['ID', 'Máquina', 'Sala', 'Operario', 'Inicio', 'Fin', 'Items', 'Observaciones']];
+    const rows = [['ID', 'Máquina', 'Sala', 'Operario', 'Inicio', 'Fin', 'Observaciones']];
     res.data.forEach(r => {
-      rows.push([r.id, r.maquina, r.sala, r.operario, r.iniciado_en, r.completado_en, `${r.items_completados}/${r.items_total}`, r.observaciones || '']);
+      rows.push([r.id, r.maquina, r.sala, r.operario, r.iniciado_en, r.completado_en, r.observaciones || '']);
     });
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });

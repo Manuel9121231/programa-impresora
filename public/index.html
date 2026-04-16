@@ -23,7 +23,7 @@
         <div class="logo">
           <div class="logo-icon">🖨️</div>
           <div>
-            <h1>GestiónImpresoras - Estación de la ciencia y la tecnología</h1>
+            <h1>GestiónImpresoras</h1>
             <p>Panel de Administración</p>
           </div>
         </div>
@@ -179,6 +179,7 @@
                 style="width:160px;padding:8px 12px;font-size:13px">
                 <option value="">Todas las salas</option>
               </select>
+              <button class="btn btn-primary" onclick="abrirModalNuevaMaquina()" id="btnNuevaMaquina">+ Nueva máquina</button>
             </div>
           </div>
           <div class="grid-maquinas" id="gridMaquinas"></div>
@@ -228,7 +229,6 @@
                     <th>Operario</th>
                     <th>Inicio</th>
                     <th>Fin</th>
-                    <th>Puntos</th>
                     <th>Observaciones</th>
                     <th></th>
                   </tr>
@@ -330,9 +330,9 @@
               <div style="font-size:13px;color:var(--text-secondary)">
                 1. Imprime o muestra en pantalla el QR de cada máquina.<br>
                 2. El operario escanea el QR con la cámara del móvil.<br>
-                3. Introduce su PIN para identificarse.<br>
-                4. Completa el checklist de mantenimiento.<br>
-                5. El dato queda registrado automáticamente en la base de datos.
+                3. La impresora queda <strong>pre-seleccionada automáticamente</strong>.<br>
+                4. El operario elige el tipo (Incidencia / Mantenimiento), describe el problema y puede añadir fotos.<br>
+                5. El registro queda guardado en la base de datos del sistema.
               </div>
             </div>
           </div>
@@ -460,6 +460,49 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="cerrarModal('modalUsuario')">Cancelar</button>
         <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Crear Máquina ── -->
+  <div class="overlay" id="modalNuevaMaquina">
+    <div class="modal" style="max-width:460px">
+      <div class="modal-header">
+        <div class="modal-title">Nueva Máquina</div>
+        <button class="modal-close" onclick="cerrarModal('modalNuevaMaquina')">✕</button>
+      </div>
+      <div id="msgNuevaMaquina"></div>
+      <div class="form-group">
+        <label class="form-label">Nombre <span style="color:var(--danger)">*</span></label>
+        <input class="form-control" id="nuevoMaquinaNombre" type="text" placeholder="Ej: Impresora A-11">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sala <span style="color:var(--danger)">*</span></label>
+        <select class="form-control" id="nuevoMaquinaSala"></select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-control" id="nuevoMaquinaTipo">
+            <option>Impresora FDM</option>
+            <option>Impresora Resina</option>
+            <option>CNC / Fresadora</option>
+            <option>Cortadora Láser</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frecuencia (días)</label>
+          <input class="form-control" id="nuevoMaquinaFrecuencia" type="number" min="1" max="365" value="7">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Modelo</label>
+        <input class="form-control" id="nuevoMaquinaModelo" type="text" placeholder="Ej: Prusa MK4">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="cerrarModal('modalNuevaMaquina')">Cancelar</button>
+        <button class="btn btn-primary" onclick="crearMaquina()">Crear máquina</button>
       </div>
     </div>
   </div>
